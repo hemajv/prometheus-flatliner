@@ -98,7 +98,8 @@ def main():
     weirdness_score.subscribe(add_scores)
 
     # init and subscribe clustering flatliners
-    clusterer = flatliners.Clusterer()
+    num_nearest_depls = 5
+    clusterer = flatliners.Clusterer(num_nearest=num_nearest_depls)
     clustering_metrics_gatherer = flatliners.ClusteringMetricsGatherer()
 
     versioned_metrics.subscribe(clustering_metrics_gatherer)
@@ -112,7 +113,7 @@ def main():
         # Published Stale metrics are removed once every three times metric data is collected from prometheus
         metric_pruning_interval = 3 * round((dateparser.parse('now')-dateparser.parse(os.getenv("FLT_METRIC_CHUNK_SIZE","5m"))).total_seconds())
 
-        prom_endpoint = flatliners.PrometheusEndpoint(pruning_interval=metric_pruning_interval)
+        prom_endpoint = flatliners.PrometheusEndpoint(pruning_interval=metric_pruning_interval, num_nearest=num_nearest_depls)
         weirdness_score.subscribe(prom_endpoint)
         clusterer.subscribe(prom_endpoint)
 
