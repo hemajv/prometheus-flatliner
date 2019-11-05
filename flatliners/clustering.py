@@ -1,5 +1,6 @@
 from .baseflatliner import BaseFlatliner
 import logging
+import time
 import sys
 
 import ocp.jupyter as oj
@@ -26,8 +27,11 @@ class Clusterer(BaseFlatliner):
     # querying handle for global queries (not specific to a deployment id)
     _all_depls_querier = oj.global_queries
 
-    def __init__(self):
+    def __init__(self, num_nearest=10):
         super().__init__()
+        # how many nearest clusters to pubish
+        self.num_nearest = num_nearest
+
         # data transformers and clusertering model
         self._power_transf = PowerTransformer()
         self._umap_transf = UMAP(n_components=3, metric='hamming', n_neighbors=100, min_dist=0.1, random_state=42)
@@ -104,7 +108,24 @@ class Clusterer(BaseFlatliner):
         return pd.get_dummies(df[['type']], prefix='install_type')
 
     def _publish_nearest_depls(self):
-        raise NotImplementedError
+        testmetric = self.Nearest_Deployments_Metric(
+            num = self.num_nearest,
+            _id = 'test_cluster_{:.5f}'.format(np.random.rand()),
+            version = '4.2.0b',
+            timestamp = time.time(),
+        )
+        testmetric.nearest_deployments[0] = 'dead'
+        testmetric.nearest_deployments[1] = 'beef'
+        self.publish(testmetric)
+
+    class Nearest_Deployments_Metric:
+        def __init__(self, num: int, timestamp: float, _id: str, version: str, nearest_deployments: dict = None):
+            self.num = num
+            self._id = _id
+            self.version = version
+            self.timestamp = timestamp
+            if nearest_deployments is None:
+                self.nearest_deployments = dict((i, "") for i in range(num))
 
 
 class ClusteringMetricsGatherer(BaseFlatliner):
