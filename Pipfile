@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-rx = "*"
+rx = "<3.0.0"
 pandas = "*"
 influxdb = "*"
 apscheduler = "*"
@@ -13,6 +13,7 @@ retrying = "*"
 dataclasses = "*"
 prometheus_client = "*"
 cachetools = "*"
+scikit-learn = "*"
 
 [dev-packages]
 pytest = "*"
