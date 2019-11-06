@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6975e970b256dba708b9b6604b31b5981f62afe0320001b19c1a55dfd69e2c3b"
+            "sha256": "badfda3b6dfeb0b00310b20ccf9cb304bc97459d280b93634c02a8c9770d67be"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -256,7 +256,7 @@
         },
         "ocp": {
             "editable": true,
-            "git": "https://gitlab.cee.redhat.com/ccx/insights-ocp",
+            "git": "https://gitlab.cee.redhat.com/ccx/insights-ocp.git",
             "ref": "67afca7dc09b7fde5cc07cf93ae1705f3e67f551"
         },
         "pandas": {
