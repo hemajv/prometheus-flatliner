@@ -68,11 +68,11 @@ class Clusterer(BaseFlatliner):
                             )
 
             # number of nearest neighbors cant be more than number of deployments in cluster
-            cid_nn = min(self.num_nearest, len(cid_metrics))
+            cid_nn = min(1+self.num_nearest, len(cid_metrics))
             _LOGGER.info("Clusterer: Finding {} nearest deployments for deployments (n={}) of cluster id {}".format(cid_nn, cid_metrics.shape[0], cid))
 
             # fit nearest neighbor querier and get nearest
-            nearneigh = NearestNeighbors(n_neighbors=1+cid_nn, n_jobs=-1).fit(cid_metrics)
+            nearneigh = NearestNeighbors(n_neighbors=cid_nn, n_jobs=-1).fit(cid_metrics)
             kn_idx = nearneigh.kneighbors(cid_metrics, return_distance=False)
 
             # get deployment id from index into cid_metrics
@@ -80,7 +80,7 @@ class Clusterer(BaseFlatliner):
             depl_id_from_idx = np.vectorize(lambda i: cid_all_ids[i])
             kn_depl_ids = depl_id_from_idx(kn_idx)
 
-            _LOGGER.debug("Clusterer: Publishing nearest deployments for cluster id {}".format(cid))
+            _LOGGER.info("Clusterer: Publishing nearest deployments for cluster id {}".format(cid))
             self._publish_nearest_depls(kn_depl_ids, ts)
 
     @staticmethod
