@@ -15,6 +15,7 @@ prometheus_client = "*"
 cachetools = "*"
 scikit-learn = "*"
 umap-learn = "*"
+ocp = {git = "https://gitlab.cee.redhat.com/ccx/insights-ocp", editable = true}
 
 [dev-packages]
 pytest = "*"
