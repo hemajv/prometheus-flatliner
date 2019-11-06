@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.preprocessing import PowerTransformer
+from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import KMeans
 from umap import UMAP
 
@@ -56,8 +57,31 @@ class Clusterer(BaseFlatliner):
             )
         )
 
-        # publish list of "nearest" deployments for each deploymeny
-        self._publish_nearest_depls()
+        # publish "nearest" deployments for each deployment within cluster id
+        ts = time.time()
+        for cid in np.unique(self._model.labels_):
+            # transformed data for deployments assigned to cluster `cid`
+            cid_metrics = self._umap_transf.transform(
+                                self._power_transf.transform(
+                                    metrics_df.iloc[self._model.labels_ == cid]
+                                )
+                            )
+
+            # number of nearest neighbors cant be more than number of deployments in cluster
+            cid_nn = min(self.num_nearest, len(cid_metrics))
+            _LOGGER.info("Clusterer: Finding {} nearest deployments for deployments (n={}) of cluster id {}".format(cid_nn, cid_metrics.shape[0], cid))
+
+            # fit nearest neighbor querier and get nearest
+            nearneigh = NearestNeighbors(n_neighbors=1+cid_nn, n_jobs=-1).fit(cid_metrics)
+            kn_idx = nearneigh.kneighbors(cid_metrics, return_distance=False)
+
+            # get deployment id from index into cid_metrics
+            cid_all_ids = metrics_df.iloc[self._model.labels_ == cid].index
+            depl_id_from_idx = np.vectorize(lambda i: cid_all_ids[i])
+            kn_depl_ids = depl_id_from_idx(kn_idx)
+
+            _LOGGER.debug("Clusterer: Publishing nearest deployments for cluster id {}".format(cid))
+            self._publish_nearest_depls(kn_depl_ids, ts)
 
     @staticmethod
     def _opconds_metrics_to_df(metrics_raw):
@@ -107,16 +131,30 @@ class Clusterer(BaseFlatliner):
         # keep only relevant columns
         return pd.get_dummies(df[['type']], prefix='install_type')
 
-    def _publish_nearest_depls(self):
-        testmetric = self.Nearest_Deployments_Metric(
-            num = self.num_nearest,
-            _id = 'test_cluster_{:.5f}'.format(np.random.rand()),
-            version = '4.2.0b',
-            timestamp = time.time(),
-        )
-        testmetric.nearest_deployments[0] = 'dead'
-        testmetric.nearest_deployments[1] = 'beef'
-        self.publish(testmetric)
+    def _publish_nearest_depls(self, kn_depl_ids, timestamp):
+        """Publishes Prometheus metric (nearest_deployments) for each deployment
+        (n) in kn_depl_ids
+
+        Arguments:
+            kn_depl_ids {np.ndarray} -- ndarray of shape (n x k) where n is number
+                of deployments and k is the number of nearest neighbors plus one
+            timestamp {float} -- "value" of the prometheus metric
+        """
+        # the first element in kn_depl_ids is always the depl itself
+        curr_num_nearest = kn_depl_ids.shape[1]-1
+        for i in range(len(kn_depl_ids)):
+            # create prom metric for each depl
+            # FIXME: need a way to pass versions
+            metric = self.Nearest_Deployments_Metric(
+                num = curr_num_nearest,
+                _id = kn_depl_ids[i, 0],
+                version = 'test',
+                timestamp = timestamp,
+            )
+            # add k nearest neighbors
+            for ni, nid in enumerate(kn_depl_ids[i, 1:]):
+                metric.nearest_deployments[ni] = nid
+            self.publish(metric)
 
     class Nearest_Deployments_Metric:
         def __init__(self, num: int, timestamp: float, _id: str, version: str, nearest_deployments: dict = None):
