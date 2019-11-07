@@ -9,6 +9,7 @@ import numpy as np
 
 from sklearn.preprocessing import PowerTransformer
 from sklearn.neighbors import NearestNeighbors
+from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from umap import UMAP
 
@@ -36,6 +37,7 @@ class Clusterer(BaseFlatliner):
         # data transformers and clusertering model
         self._power_transf = PowerTransformer()
         self._umap_transf = UMAP(n_components=3, metric='hamming', n_neighbors=100, min_dist=0.1, random_state=42)
+        self._pca = PCA(n_components=3, random_state=42)
         self._model = KMeans(n_clusters=8, max_iter=1000, n_jobs=-1, random_state=42)
 
     def on_next(self, x):
@@ -51,7 +53,7 @@ class Clusterer(BaseFlatliner):
 
         # train model
         self._model.fit(
-            self._umap_transf.fit_transform(
+            self._pca.fit_transform(
                 X=self._power_transf.fit_transform(metrics_df),
                 y=None
             )
@@ -61,7 +63,7 @@ class Clusterer(BaseFlatliner):
         ts = time.time()
         for cid in np.unique(self._model.labels_):
             # transformed data for deployments assigned to cluster `cid`
-            cid_metrics = self._umap_transf.transform(
+            cid_metrics = self._pca.transform(
                                 self._power_transf.transform(
                                     metrics_df.iloc[self._model.labels_ == cid]
                                 )
@@ -136,17 +138,16 @@ class Clusterer(BaseFlatliner):
         (n) in kn_depl_ids
 
         Arguments:
-            kn_depl_ids {np.ndarray} -- ndarray of shape (n x k) where n is number
+            kn_depl_ids {np.ndarray} -- ndarray of shape (n x 1+k) where n is number
                 of deployments and k is the number of nearest neighbors plus one
+                The first element in each row is the depl_id of itself
             timestamp {float} -- "value" of the prometheus metric
         """
-        # the first element in kn_depl_ids is always the depl itself
-        curr_num_nearest = kn_depl_ids.shape[1]-1
         for i in range(len(kn_depl_ids)):
             # create prom metric for each depl
             # FIXME: need a way to pass versions
             metric = self.Nearest_Deployments_Metric(
-                num = curr_num_nearest,
+                num = self.num_nearest,
                 _id = kn_depl_ids[i, 0],
                 version = 'test',
                 timestamp = timestamp,
