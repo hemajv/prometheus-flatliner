@@ -21,7 +21,9 @@ class PrometheusEndpoint(BaseFlatliner):
 
         # Gauge metric that provides a list of deployments that are most similar to a given deployment
         self.num_nearest = num_nearest
-        nearest_depls_labels = ['_id', 'version'] + ['n{}'.format(i) for i in range(num_nearest)]
+        nearest_depls_labels = ['_id', 'version']\
+                                + ['n{}_id'.format(i) for i in range(num_nearest)]\
+                                + ['n{}_dist'.format(i) for i in range(num_nearest)]
         self.nearest_deployments_gauge = Gauge('nearest_deployments','Nearest clusters for the given Cluster ID and Version', nearest_depls_labels)
 
         self.published_metric_timestamps = {'weirdness_score': defaultdict(list), 'nearest_deployments': defaultdict(list)}
@@ -37,13 +39,14 @@ class PrometheusEndpoint(BaseFlatliner):
                 self.published_metric_timestamps['weirdness_score'][str(x.cluster)] = [int(time()),str(x.version)]
             elif hasattr(x, 'nearest_deployments'):
                 # update the published metrics
-                metric_labels = dict(('n{}'.format(i), x.nearest_deployments[i]) for i in range(self.num_nearest))
+                metric_labels = x.nearest_deployments
                 metric_labels['_id'] = x._id
                 metric_labels['version'] = x.version
                 self.nearest_deployments_gauge.labels(**metric_labels).set(x.timestamp)
 
                 # Store timestamp when the metric was published and metric version info
-                self.published_metric_timestamps['nearest_deployments'][str(x._id)] = [int(time()),str(x.version)]
+                self.published_metric_timestamps['nearest_deployments'][str(x._id)] = \
+                    [lab for lab in metric_labels.values()]
         except Exception as e:
             _LOGGER.error("Couldn't process the following packet {0}. Reason: {1}".format(x, str(e)))
             raise e
