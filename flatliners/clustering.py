@@ -38,7 +38,6 @@ class Clusterer(BaseFlatliner):
         self._power_transf = PowerTransformer()
         self._umap_transf = UMAP(n_components=3, metric='hamming', n_neighbors=100, min_dist=0.1, random_state=42)
         self._pca = PCA(n_components=3, random_state=42)
-        self._model = KMeans(n_clusters=8, max_iter=1000, n_jobs=-1, random_state=42)
 
     def on_next(self, x):
         # TODO: perform only for the concerned version
@@ -51,8 +50,13 @@ class Clusterer(BaseFlatliner):
         metrics_df['install_type_IPI'] = metrics_df['install_type_IPI'].fillna(0)
         metrics_df['install_type_UPI'] = metrics_df['install_type_UPI'].fillna(0)
 
-        # train model
-        self._model.fit(
+        # init model and train
+        num_clusters = 8
+        # if too little points, then label all points as the same cluster
+        if num_clusters > metrics_df.shape[0]:
+            num_clusters = 1
+        _model = KMeans(n_clusters=num_clusters, max_iter=1000, n_jobs=-1, random_state=42)
+        _model.fit(
             self._pca.fit_transform(
                 X=self._power_transf.fit_transform(metrics_df),
                 y=None
@@ -61,29 +65,29 @@ class Clusterer(BaseFlatliner):
 
         # publish "nearest" deployments for each deployment within cluster id
         ts = time.time()
-        for cid in np.unique(self._model.labels_):
+        for cid in np.unique(_model.labels_):
             # transformed data for deployments assigned to cluster `cid`
             cid_metrics = self._pca.transform(
                                 self._power_transf.transform(
-                                    metrics_df.iloc[self._model.labels_ == cid]
+                                    metrics_df.iloc[_model.labels_ == cid]
                                 )
                             )
 
             # number of nearest neighbors cant be more than number of deployments in cluster
             cid_nn = min(1+self.num_nearest, len(cid_metrics))
-            _LOGGER.info("Clusterer: Finding {} nearest deployments for deployments (n={}) of cluster id {}".format(cid_nn, cid_metrics.shape[0], cid))
+            _LOGGER.info("Clusterer: Finding {} nearest deployments for deployments (n={}) of cluster id {}".format(cid_nn-1, cid_metrics.shape[0], cid))
 
             # fit nearest neighbor querier and get nearest
             nearneigh = NearestNeighbors(n_neighbors=cid_nn, n_jobs=-1).fit(cid_metrics)
-            kn_idx = nearneigh.kneighbors(cid_metrics, return_distance=False)
+            kn_dists, kn_idx = nearneigh.kneighbors(cid_metrics)
 
             # get deployment id from index into cid_metrics
-            cid_all_ids = metrics_df.iloc[self._model.labels_ == cid].index
+            cid_all_ids = metrics_df.iloc[_model.labels_ == cid].index
             depl_id_from_idx = np.vectorize(lambda i: cid_all_ids[i])
             kn_depl_ids = depl_id_from_idx(kn_idx)
 
             _LOGGER.info("Clusterer: Publishing nearest deployments for cluster id {}".format(cid))
-            self._publish_nearest_depls(kn_depl_ids, ts)
+            self._publish_nearest_depls(kn_depl_ids, kn_dists, ts)
 
     @staticmethod
     def _opconds_metrics_to_df(metrics_raw):
@@ -133,7 +137,7 @@ class Clusterer(BaseFlatliner):
         # keep only relevant columns
         return pd.get_dummies(df[['type']], prefix='install_type')
 
-    def _publish_nearest_depls(self, kn_depl_ids, timestamp):
+    def _publish_nearest_depls(self, kn_depl_ids, kn_depl_dists, timestamp):
         """Publishes Prometheus metric (nearest_deployments) for each deployment
         (n) in kn_depl_ids
 
@@ -141,6 +145,9 @@ class Clusterer(BaseFlatliner):
             kn_depl_ids {np.ndarray} -- ndarray of shape (n x 1+k) where n is number
                 of deployments and k is the number of nearest neighbors plus one
                 The first element in each row is the depl_id of itself
+            kn_depl_dists {np.ndarray} -- ndarray of shape (n x 1+k) where n is number
+                of deployments and k is the number of nearest neighbors plus one
+                The first element in each row is the distance to itself (ie 0)
             timestamp {float} -- "value" of the prometheus metric
         """
         for i in range(len(kn_depl_ids)):
@@ -152,9 +159,10 @@ class Clusterer(BaseFlatliner):
                 version = 'test',
                 timestamp = timestamp,
             )
-            # add k nearest neighbors
-            for ni, nid in enumerate(kn_depl_ids[i, 1:]):
-                metric.nearest_deployments[ni] = nid
+            # add k nearest neighbors and their distances
+            for k in range(1, kn_depl_ids.shape[1]):
+                metric.nearest_deployments['n{}_id'.format(k-1)] = kn_depl_ids[i, k]
+                metric.nearest_deployments['n{}_dist'.format(k-1)] = kn_depl_dists[i, k]
             self.publish(metric)
 
     class Nearest_Deployments_Metric:
@@ -164,7 +172,10 @@ class Clusterer(BaseFlatliner):
             self.version = version
             self.timestamp = timestamp
             if nearest_deployments is None:
-                self.nearest_deployments = dict((i, "") for i in range(num))
+                self.nearest_deployments = dict()
+                for i in range(num):
+                    self.nearest_deployments['n{}_id'.format(i)] = ''
+                    self.nearest_deployments['n{}_dist'.format(i)] = -1
 
 
 class ClusteringMetricsGatherer(BaseFlatliner):
