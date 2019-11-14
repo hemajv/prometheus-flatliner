@@ -63,11 +63,11 @@ class PrometheusEndpoint(BaseFlatliner):
                 self.weirdness_score_gauge.remove(cluster_id, self.published_metric_timestamps['weirdness_score'][cluster_id][1])
                 del self.published_metric_timestamps['weirdness_score'][cluster_id]
 
-        for cluster_id in list(self.published_metric_timestamps['nearest_deployments']):
-            if self.published_metric_timestamps['nearest_deployments'][cluster_id][0] < timestamp_threshold:
-                # if metric is stale, stop publishing it
-                self.nearest_deployments_gauge.remove(cluster_id, self.published_metric_timestamps['nearest_deployments'][cluster_id][1])
-                del self.published_metric_timestamps['nearest_deployments'][cluster_id]
+        # for cluster_id in list(self.published_metric_timestamps['nearest_deployments']):
+        #     if self.published_metric_timestamps['nearest_deployments'][cluster_id][0] < timestamp_threshold:
+        #         # if metric is stale, stop publishing it
+        #         self.nearest_deployments_gauge.remove(cluster_id, self.published_metric_timestamps['nearest_deployments'][cluster_id][1])
+        #         del self.published_metric_timestamps['nearest_deployments'][cluster_id]
 
 
     def start_server(self):
