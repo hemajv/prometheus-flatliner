@@ -11,4 +11,4 @@ from .influxdbstorage import InfluxdbStorage
 from .singlevaluemetric import SingleValueMetric
 from .prometheusendpoint import PrometheusEndpoint
 from .versionfilter import VersionFilter
-from .clustering import Clusterer, ClusteringMetricsGatherer
+from .clustering import ClusteringMetricsGatherer, ClusteringMetricsStructurer, Clusterer

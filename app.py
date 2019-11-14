@@ -100,10 +100,12 @@ def main():
     # init and subscribe clustering flatliners
     num_nearest_depls = 5
     clusterer = flatliners.Clusterer(num_nearest=num_nearest_depls)
+    clustering_metrics_structurer = flatliners.ClusteringMetricsStructurer()
     clustering_metrics_gatherer = flatliners.ClusteringMetricsGatherer()
 
-    versioned_metrics.subscribe(clustering_metrics_gatherer)
-    clustering_metrics_gatherer.subscribe(clusterer)
+    metrics_observable.subscribe(clustering_metrics_gatherer)
+    clustering_metrics_gatherer.subscribe(clustering_metrics_structurer)
+    clustering_metrics_structurer.subscribe(clusterer)
 
     if os.getenv("FLT_INFLUX_DB_DSN"):
         influxdb_storage = flatliners.InfluxdbStorage(os.environ.get("FLT_INFLUX_DB_DSN"))
