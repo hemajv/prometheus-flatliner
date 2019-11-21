@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: ocp4-clustering
+spec:
+  entrypoint: ocp4-clustering
+  volumes:
+    - name: workdir
+      emptyDir: {}
+  templates:
+    - name: ocp4clustering
+      container:
+        env:
+          - name: APP_FILE
+            value: app.py
+          - name: FLT_PROM_URL
+            value: ""
+          - name: FLT_PROM_ACCESS_TOKEN
+            value: ""
+          - name: FLT_METRICS_LIST
+            value: cluster_version;cluster_installer;cluster_operator_conditions;etcd_object_counts;alerts
+          - name: FLT_LIVE_METRIC_COLLECT
+            value: True
+          - name: FLT_VERSION_FILTER_REGEX
+            value: ".*"
+        image: quay.io/hveeradh/argo-ocp4-clustering
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/output
+    - name: ocp4-clustering
+      dag:
+        tasks:
+          - name: OCP4-Clustering
+            template: ocp4clustering
