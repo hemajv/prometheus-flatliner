@@ -18,7 +18,7 @@ spec:
           - name: FLT_PROM_ACCESS_TOKEN
             value: ""
           - name: FLT_METRICS_LIST
-            value: cluster_version;cluster_installer;cluster_operator_conditions;etcd_object_counts;alerts
+            value: cluster_version,cluster_installer,cluster_operator_conditions,etcd_object_counts,alerts
           - name: FLT_LIVE_METRIC_COLLECT
             value: True
           - name: FLT_VERSION_FILTER_REGEX
