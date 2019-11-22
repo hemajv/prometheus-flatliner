@@ -4,6 +4,12 @@ metadata:
   generateName: ocp4-clustering
 spec:
   entrypoint: ocp4-clustering
+  arguments:
+    parameters:
+      - name: prom-url
+        value: https://telemeter-lts.datahub.redhat.com
+      - name: prom-token
+        value: xyz 
   volumes:
     - name: workdir
       emptyDir: {}
@@ -14,9 +20,9 @@ spec:
           - name: APP_FILE
             value: app.py
           - name: FLT_PROM_URL
-            value: ""
+            value: "{{workflow.parameters.prom-url}}"
           - name: FLT_PROM_ACCESS_TOKEN
-            value: ""
+            value: "{{workflow.parameters.prom-token}}"
           - name: FLT_METRICS_LIST
             value: cluster_version,cluster_installer,cluster_operator_conditions,etcd_object_counts,alerts
           - name: FLT_LIVE_METRIC_COLLECT
