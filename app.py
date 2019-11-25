@@ -113,7 +113,7 @@ def main():
 
     if os.getenv("FLT_LIVE_METRIC_COLLECT","False") == "True":
         # Published Stale metrics are removed once every three times metric data is collected from prometheus
-        metric_pruning_interval = 3 * round((dateparser.parse('now')-dateparser.parse(os.getenv("FLT_METRIC_CHUNK_SIZE","5m"))).total_seconds())
+        metric_pruning_interval = 3 * round((dateparser.parse('now')-dateparser.parse(metric_chunk_size)).total_seconds())
 
         prom_endpoint = flatliners.PrometheusEndpoint(pruning_interval=metric_pruning_interval, num_nearest=num_nearest_depls)
         weirdness_score.subscribe(prom_endpoint)
