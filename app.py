@@ -19,7 +19,7 @@ logging.basicConfig(format='%(asctime)s:%(levelname)s: %(message)s', level=loggi
 def main():
     metrics_list = os.getenv("FLT_METRICS_LIST")
     if metrics_list:    # If the env variable for FLT_METRICS_LIST is set, pull data from Prometheus
-        metrics_list = str(metrics_list).split(",")
+        metrics_list = str(metrics_list).split(";")
         _LOGGER.info("The metrics initialized were: {0}".format(metrics_list))
         metric_start_datetime = os.getenv("FLT_METRIC_START_DATETIME","16 Oct 2018")
         metric_end_datetime = os.getenv("FLT_METRIC_END_DATETIME","17 Oct 2018")
