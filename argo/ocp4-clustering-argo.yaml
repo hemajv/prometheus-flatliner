@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: ocp4-clustering
+spec:
+  entrypoint: ocp4-clustering
+  arguments:
+    parameters:
+      - name: prom-url
+        value: https://telemeter-lts.datahub.redhat.com
+      - name: prom-token
+        value: xyz
+      - name: start-datetime
+        value: 16 Oct 2018
+      - name: end-datetime
+        value: 17 Oct 2018
+  volumes:
+    - name: workdir
+      emptyDir: {}
+  templates:
+    - name: ocp4clustering
+      container:
+        env:
+          - name: APP_FILE
+            value: app.py
+          - name: FLT_PROM_URL
+            value: "{{workflow.parameters.prom-url}}"
+          - name: FLT_PROM_ACCESS_TOKEN
+            value: "{{workflow.parameters.prom-token}}"
+          - name: FLT_METRICS_LIST
+            value: cluster_version;cluster_installer;etcd_object_counts;alerts;cluster_operator_conditions{name=~"authentication|dns|image-registry|ingress|kube-apiserver|kube-controller-manager|kube-scheduler|openshift-apiserver|openshift-controller-manager|openshift-samples|network"}
+          - name: FLT_LIVE_METRIC_COLLECT
+            value: True
+          - name: FLT_VERSION_FILTER_REGEX
+            value: ".*"
+          - name: FLT_METRIC_START_DATETIME
+            value: "{{workflow.parameters.start-datetime}}"
+          - name: FLT_METRIC_END_DATETIME
+            value: "{{workflow.parameters.end-datetime}}"
+        image: quay.io/hveeradh/argo-ocp4-clustering
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/output
+        resources:
+          limits:
+            cpu: 2
+            memory: 2Gi
+    - name: ocp4-clustering
+      dag:
+        tasks:
+          - name: OCP4-Clustering
+            template: ocp4clustering
