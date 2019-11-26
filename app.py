@@ -8,47 +8,65 @@ import logging
 # Set up logging
 _LOGGER = logging.getLogger(__name__)
 
-if os.getenv("FLT_DEBUG_MODE","False") == "True":
-    logging_level = logging.DEBUG # Enable Debug mode
+if os.getenv("FLT_DEBUG_MODE", "False") == "True":
+    logging_level = logging.DEBUG  # Enable Debug mode
 else:
     logging_level = logging.INFO
 
 # Log record format
-logging.basicConfig(format='%(asctime)s:%(levelname)s: %(message)s', level=logging_level)
+logging.basicConfig(
+    format="%(asctime)s:%(levelname)s: %(message)s", level=logging_level
+)
+
 
 def main():
     metrics_list = os.getenv("FLT_METRICS_LIST")
-    if metrics_list:    # If the env variable for FLT_METRICS_LIST is set, pull data from Prometheus
-        metrics_list = str(metrics_list).split(",")
+    if (
+        metrics_list
+    ):  # If the env variable for FLT_METRICS_LIST is set, pull data from Prometheus
+        metrics_list = str(metrics_list).split(";")
         _LOGGER.info("The metrics initialized were: {0}".format(metrics_list))
-        metric_start_datetime = os.getenv("FLT_METRIC_START_DATETIME","16 Oct 2018")
-        metric_end_datetime = os.getenv("FLT_METRIC_END_DATETIME","17 Oct 2018")
+        metric_start_datetime = os.getenv("FLT_METRIC_START_DATETIME", "16 Oct 2018")
+        metric_end_datetime = os.getenv("FLT_METRIC_END_DATETIME", "17 Oct 2018")
         # metric_chunk_size = os.getenv("FLT_METRIC_CHUNK_SIZE","15m")
         # NOTE: this is needed for clustering (since it uses metrics at a given time, not time series) and is a temp fix
-        metric_chunk_size = '270s'
+        metric_chunk_size = "270s"
 
-        if os.getenv("FLT_LIVE_METRIC_COLLECT","False") == "True":
+        if os.getenv("FLT_LIVE_METRIC_COLLECT", "False") == "True":
             _LOGGER.info("Starting Live Metrics Collection Mode")
             # metrics_observable is an observable that streams in all the data alerts->etcd->build
-            metrics_observable = metrics.PromMetricsLive(metrics_list=metrics_list,
-                                                        metric_chunk_size=metric_chunk_size)
+            metrics_observable = metrics.PromMetricsLive(
+                metrics_list=metrics_list, metric_chunk_size=metric_chunk_size
+            )
         else:
-            metrics_observable = metrics.PromMetrics(metrics_list=metrics_list,
-                                                        metric_start_datetime=metric_start_datetime,
-                                                        metric_end_datetime=metric_end_datetime,
-                                                        metric_chunk_size=metric_chunk_size) # this is an observable that streams in all the data alerts->etcd->build
+            metrics_observable = metrics.PromMetrics(
+                metrics_list=metrics_list,
+                metric_start_datetime=metric_start_datetime,
+                metric_end_datetime=metric_end_datetime,
+                metric_chunk_size=metric_chunk_size,
+            )  # this is an observable that streams in all the data alerts->etcd->build
 
-    else:                       # If FLT_METRICS_LIST is not set, use data from '/data/*'
-        metrics_observable = metrics.FileMetrics()  # this is an observable that streams in all the data alerts->etcd->build
+    else:  # If FLT_METRICS_LIST is not set, use data from '/data/*'
+        metrics_observable = (
+            metrics.FileMetrics()
+        )  # this is an observable that streams in all the data alerts->etcd->build
 
     # subscribe versioned metrics, which adds the version to the metrics stream
     # to metrics. Every metric emitted by metrics is sent to versioned_metrics
 
-    versioned_metrics = flatliners.VersionedMetrics()  # initilizes an observer that operates on our data
-    metrics_observable.subscribe(versioned_metrics)  # creates versioned_metrics that adds version to etcd data
+    versioned_metrics = (
+        flatliners.VersionedMetrics()
+    )  # initilizes an observer that operates on our data
+    metrics_observable.subscribe(
+        versioned_metrics
+    )  # creates versioned_metrics that adds version to etcd data
 
-    std_dev_cluster = flatliners.StdDevCluster()  # this is an observer that operates on some cluster data
-    std_dev_version = flatliners.StdDevVersion()  # this is an observer that operates on some version data
+    std_dev_cluster = (
+        flatliners.StdDevCluster()
+    )  # this is an observer that operates on some cluster data
+    std_dev_version = (
+        flatliners.StdDevVersion()
+    )  # this is an observer that operates on some version data
     comparison_score = flatliners.ResourceComparisonScore()
 
     alert_freq_cluster = flatliners.AlertFrequencyCluster()
@@ -108,21 +126,29 @@ def main():
     clustering_metrics_structurer.subscribe(clusterer)
 
     if os.getenv("FLT_INFLUX_DB_DSN"):
-        influxdb_storage = flatliners.InfluxdbStorage(os.environ.get("FLT_INFLUX_DB_DSN"))
+        influxdb_storage = flatliners.InfluxdbStorage(
+            os.environ.get("FLT_INFLUX_DB_DSN")
+        )
         weirdness_score.subscribe(influxdb_storage)
 
-    if os.getenv("FLT_LIVE_METRIC_COLLECT","False") == "True":
+    if os.getenv("FLT_LIVE_METRIC_COLLECT", "False") == "True":
         # Published Stale metrics are removed once every three times metric data is collected from prometheus
-        metric_pruning_interval = 3 * round((dateparser.parse('now')-dateparser.parse(metric_chunk_size)).total_seconds())
+        metric_pruning_interval = 3 * round(
+            (
+                dateparser.parse("now") - dateparser.parse(metric_chunk_size)
+            ).total_seconds()
+        )
 
-        prom_endpoint = flatliners.PrometheusEndpoint(pruning_interval=metric_pruning_interval, num_nearest=num_nearest_depls)
+        prom_endpoint = flatliners.PrometheusEndpoint(
+            pruning_interval=metric_pruning_interval, num_nearest=num_nearest_depls
+        )
         weirdness_score.subscribe(prom_endpoint)
         clusterer.subscribe(prom_endpoint)
 
         # connect the metrics stream to publish data
         metrics_observable.connect()
 
-        prom_endpoint.start_server() # this method never returns, starts a web server
+        prom_endpoint.start_server()  # this method never returns, starts a web server
     else:
         # connect the metrics stream to publish data
         metrics_observable.connect()
@@ -130,5 +156,5 @@ def main():
         return score_sum
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print(main())

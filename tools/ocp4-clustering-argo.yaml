@@ -28,7 +28,7 @@ spec:
           - name: FLT_PROM_ACCESS_TOKEN
             value: "{{workflow.parameters.prom-token}}"
           - name: FLT_METRICS_LIST
-            value: cluster_version,cluster_installer,etcd_object_counts,alerts,cluster_operator_conditions{name=~"authentication|dns|image-registry|ingress|kube-apiserver|kube-controller-manager|kube-scheduler|openshift-apiserver|openshift-controller-manager|openshift-samples|network"}
+            value: cluster_version;cluster_installer;etcd_object_counts;alerts;cluster_operator_conditions{name=~"authentication|dns|image-registry|ingress|kube-apiserver|kube-controller-manager|kube-scheduler|openshift-apiserver|openshift-controller-manager|openshift-samples|network"}
           - name: FLT_LIVE_METRIC_COLLECT
             value: True
           - name: FLT_VERSION_FILTER_REGEX
@@ -42,6 +42,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/output
+        resources:
+          limits:
+            cpu: 2
+            memory: 2Gi
     - name: ocp4-clustering
       dag:
         tasks:
